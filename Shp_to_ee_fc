@@ -1,3 +1,6 @@
+import geopandas as gpd
+import ee
+from shapely.geometry import Point, LineString, Polygon, MultiPolygon, mapping
 
 def shp_to_ee_fc(shp_path):
     """
