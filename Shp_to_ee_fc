@@ -1,0 +1,44 @@
+
+def shp_to_ee_fc(shp_path):
+    """
+    Read a shapefile and convert it directly to an Earth Engine FeatureCollection.
+    Automatically strips Z coordinates from geometries.
+    """
+    gdf = gpd.read_file(shp_path)
+
+    def to_2d(geom):
+        if geom is None or geom.is_empty:
+            return None
+        if geom.geom_type == 'Point':
+            x, y = geom.coords[0][:2]
+            return Point(x, y)
+        elif geom.geom_type == 'LineString':
+            coords = [(c[0], c[1]) for c in geom.coords]
+            return LineString(coords)
+        elif geom.geom_type == 'Polygon':
+            coords = [(c[0], c[1]) for c in geom.exterior.coords]
+            return Polygon(coords)
+        elif geom.geom_type == 'MultiPolygon':
+            polys = []
+            for poly in geom.geoms:
+                coords = [(c[0], c[1]) for c in poly.exterior.coords]
+                polys.append(Polygon(coords))
+            return MultiPolygon(polys)
+        else:
+            return None
+
+    features = []
+    for _, row in gdf.iterrows():
+        geom2d = to_2d(row.geometry)
+        if geom2d is None:
+            continue
+
+        props = row.drop('geometry').to_dict()
+        
+        if geom2d.geom_type == 'MultiPolygon':
+            for poly in geom2d.geoms:
+                features.append(ee.Feature(ee.Geometry(mapping(poly)), props))
+        else:
+            features.append(ee.Feature(ee.Geometry(mapping(geom2d)), props))
+
+    return ee.FeatureCollection(features)
